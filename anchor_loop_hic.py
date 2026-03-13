@@ -202,14 +202,20 @@ def _anchor_worker(anchor, entries, args, out_path, result_queue=None):
             anc_lfc = float('inf')
         else:
             anc_lfc = float('-inf')
+        def _safe_log2(v):
+            if v is None or v <= 0:
+                return float('nan')
+            return math.log2(v)
         if result_queue is not None:
             result_queue.put({
-                'chr':     anchor['chr'],
-                'start':   anchor['start'],
-                'end':     anchor['end'],
-                'anc_REF': anc_REF,
-                'anc_ALT': anc_ALT,
-                'anc_lfc': anc_lfc,
+                'chr':          anchor['chr'],
+                'start':        anchor['start'],
+                'end':          anchor['end'],
+                'anc_REF':      anc_REF,
+                'anc_ALT':      anc_ALT,
+                'anc_lfc':      anc_lfc,
+                'ag_log2':      _safe_log2(anchor.get('ag')),
+                'chipseq_log2': _safe_log2(anchor.get('chipseq')),
             })
         top_frac = 1.0 - 0.7 / fig_height
         plt.tight_layout(rect=[0.02, 0.1, 1.0, top_frac], h_pad=0.2)
@@ -373,11 +379,12 @@ def main():
     if anchor_stats:
         tsv_path = os.path.splitext(args.output)[0] + '_anchor_stats.tsv'
         with open(tsv_path, 'w') as fh:
-            fh.write('chr\tstart\tend\tanc_REF\tanc_ALT\tanc_lfc\n')
+            fh.write('chr\tstart\tend\tanc_REF\tanc_ALT\tanc_lfc\tag_log2\tchipseq_log2\n')
             for s in anchor_stats:
                 fh.write(
                     f"{s['chr']}\t{s['start']}\t{s['end']}\t"
-                    f"{s['anc_REF']:.4f}\t{s['anc_ALT']:.4f}\t{s['anc_lfc']:.4f}\n"
+                    f"{s['anc_REF']:.4f}\t{s['anc_ALT']:.4f}\t{s['anc_lfc']:.4f}\t"
+                    f"{s['ag_log2']:.4f}\t{s['chipseq_log2']:.4f}\n"
                 )
         logger.info(f"Anchor stats TSV: {tsv_path}  ({len(anchor_stats)} row(s))")
 
