@@ -138,24 +138,34 @@ def main():
     hic  = df['anc_lfc'].to_numpy(dtype=float)
 
     # ── figure ────────────────────────────────────────────────────────────────
-    fig, ax = plt.subplots(figsize=(7, 6))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 6))
 
-    _plot_series(ax, chip, ag, color='steelblue',     label_base='ChIP-seq')
-    _plot_series(ax, hic,  ag, color='mediumseagreen', label_base='Hi-C log2FC')
+    def _decorate(ax, xlabel, ylabel, title):
+        ax.axhline(0, color='lightgray', linewidth=0.8, zorder=1)
+        ax.axvline(0, color='lightgray', linewidth=0.8, zorder=1)
+        ax.plot([-6, 6], [-6, 6], color='lightgray', linewidth=0.8, linestyle='--', zorder=1)
+        ax.set_xlim(-6, 6)
+        ax.set_ylim(-6, 6)
+        ax.set_xlabel(xlabel, fontsize=11)
+        ax.set_ylabel(ylabel, fontsize=11)
+        ax.set_title(title, fontsize=11, pad=8)
+        ax.legend(framealpha=0.85, fontsize=9)
+        ax.tick_params(labelsize=9)
 
-    ax.axhline(0, color='lightgray', linewidth=0.8, zorder=1)
-    ax.axvline(0, color='lightgray', linewidth=0.8, zorder=1)
-    ax.plot([-6, 6], [-6, 6], color='lightgray', linewidth=0.8, linestyle='--', zorder=1)
+    # plot 1: ag on y, chip (blue) + hic (green) on x
+    _plot_series(ax1, chip, ag, color='steelblue',      label_base='ChIP-seq')
+    _plot_series(ax1, hic,  ag, color='mediumseagreen', label_base='Hi-C log2FC')
+    _decorate(ax1, xlabel='signal / fold-change', ylabel='AlphaGenome score',
+              title='AlphaGenome vs ChIP-seq & Hi-C')
 
-    ax.set_xlim(-6, 6)
-    ax.set_ylim(-6, 6)
+    # plot 2: chip on y, ag (purple) + hic (green) on x
+    _plot_series(ax2, ag,  chip, color='mediumpurple',   label_base='AlphaGenome')
+    _plot_series(ax2, hic, chip, color='mediumseagreen', label_base='Hi-C log2FC')
+    _decorate(ax2, xlabel='signal / fold-change', ylabel='ChIP-seq score',
+              title='ChIP-seq vs AlphaGenome & Hi-C')
 
-    ax.set_xlabel('signal / fold-change', fontsize=11)
-    ax.set_ylabel('AlphaGenome score', fontsize=11)
-    ax.set_title(args.title or f'Anchor stats — {os.path.basename(args.stats)}',
-                 fontsize=12, pad=10)
-    ax.legend(framealpha=0.85, fontsize=9)
-    ax.tick_params(labelsize=9)
+    fig.suptitle(args.title or f'Anchor stats — {os.path.basename(args.stats)}',
+                 fontsize=12, y=1.01)
 
     plt.tight_layout()
     plt.savefig(args.output, bbox_inches='tight', dpi=150)
