@@ -304,8 +304,8 @@ def draw_hic_row(
     _label_target.text(
         x_pos, y_pos, row_label,
         transform=_label_target.transAxes,
-        fontsize=6.5, ha='center', va='center',
-        rotation=90, rotation_mode='anchor',
+        fontsize=8,
+        rotation_mode='anchor',
         fontfamily='monospace', clip_on=clip,
     )
 
