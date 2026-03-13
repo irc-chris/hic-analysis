@@ -146,6 +146,9 @@ def main():
     ax.axhline(0, color='lightgray', linewidth=0.8, zorder=1)
     ax.axvline(0, color='lightgray', linewidth=0.8, zorder=1)
 
+    ax.set_xlim(-6, 6)
+    ax.set_ylim(-6, 6)
+
     ax.set_xlabel('signal / fold-change', fontsize=11)
     ax.set_ylabel('AlphaGenome score', fontsize=11)
     ax.set_title(args.title or f'Anchor stats — {os.path.basename(args.stats)}',
