@@ -10,6 +10,8 @@ import os
 import sys
 import argparse
 import logging
+import multiprocessing
+import tempfile
 
 # SLURM copies the script to a spool dir, so __file__ won't point to the
 # original location. SLURM_SUBMIT_DIR is the directory sbatch was called from
@@ -143,6 +145,62 @@ def group_loops_by_anchor(loops, anchors):
     return anchor_groups
 
 
+# ── subprocess worker ─────────────────────────────────────────────────────────
+
+def _anchor_worker(anchor, entries, args, out_path):
+    '''
+    Runs in a child process. Renders one anchor page (N loop rows × 3 cols)
+    and writes it to out_path as a single-page PDF.
+
+    If this process crashes (e.g. segfault from hicstraw), only the child dies;
+    the parent detects the non-zero exit code and skips this anchor.
+    '''
+    n = len(entries)
+    with PdfPages(out_path) as pdf:
+        fig, axes_grid = plt.subplots(n, 3, figsize=(18, 6 * n), squeeze=False)
+        fig.suptitle(
+            f"Anchor: {anchor['chr']}:{anchor['start']:,}–{anchor['end']:,}",
+            fontsize=13, y=1.0
+        )
+        for row_idx, entry in enumerate(entries):
+            loop = entry['loop']
+            draw_hic_row(
+                args.unphased_hic,
+                args.ref_hic,
+                args.alt_hic,
+                loop['chr0'],
+                loop,
+                axes_grid[row_idx],
+                resolution=args.resolution,
+                norm=args.norm,
+                vmax=args.vmax,
+                overview_pad=args.overview_pad,
+                zoom_pad=args.zoom_pad,
+                title0="Unphased",
+                title1="Ref",
+                title2="Alt",
+            )
+        plt.tight_layout()
+        pdf.savefig(fig)
+        plt.close(fig)
+
+
+def _merge_pdfs(paths, output):
+    '''Concatenate a list of single-page PDFs into one output PDF.'''
+    try:
+        from pypdf import PdfWriter, PdfReader
+    except ImportError:
+        from PyPDF2 import PdfWriter, PdfReader  # older name
+
+    writer = PdfWriter()
+    for path in paths:
+        reader = PdfReader(path)
+        for page in reader.pages:
+            writer.add_page(page)
+    with open(output, 'wb') as fh:
+        writer.write(fh)
+
+
 # ── main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -220,57 +278,51 @@ def main():
 
     logger.info(f"{len(anchors)} anchor(s), {len(loops)} loop(s) loaded.")
 
-    n_pages = 0
+    n_pages   = 0
+    temp_pdfs = []   # (anchor_key, path) for each successful child
 
-    with PdfPages(args.output) as pdf:
-        for anchor in anchors:
-            key     = (anchor['chr'], anchor['start'], anchor['end'])
-            entries = anchor_groups[key]
+    for anchor in anchors:
+        key     = (anchor['chr'], anchor['start'], anchor['end'])
+        entries = anchor_groups[key]
 
-            if not entries:
-                logger.info(f"  {key[0]}:{key[1]:,}-{key[2]:,} — no loops, skipping.")
-                continue
+        if not entries:
+            logger.info(f"  {key[0]}:{key[1]:,}-{key[2]:,} — no loops, skipping.")
+            continue
 
-            n = len(entries)
-            logger.info(f"  {key[0]}:{key[1]:,}-{key[2]:,} — {n} loop(s).")
+        n = len(entries)
+        logger.info(f"  {key[0]}:{key[1]:,}-{key[2]:,} — {n} loop(s).")
 
-            try:
-                fig, axes_grid = plt.subplots(n, 3, figsize=(18, 6 * n),
-                                              squeeze=False)
-                fig.suptitle(
-                    f"Anchor: {anchor['chr']}:{anchor['start']:,}–{anchor['end']:,}",
-                    fontsize=13, y=1.0
-                )
+        # Write to a temp file so a child crash can't corrupt the final PDF.
+        tmp = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+        tmp.close()
 
-                for row_idx, entry in enumerate(entries):
-                    loop = entry['loop']
-                    draw_hic_row(
-                        args.unphased_hic,
-                        args.ref_hic,
-                        args.alt_hic,
-                        loop['chr0'],
-                        loop,
-                        axes_grid[row_idx],
-                        resolution=args.resolution,
-                        norm=args.norm,
-                        vmax=args.vmax,
-                        overview_pad=args.overview_pad,
-                        zoom_pad=args.zoom_pad,
-                        title0="Unphased",
-                        title1="Ref",
-                        title2="Alt",
-                    )
+        proc = multiprocessing.Process(
+            target=_anchor_worker,
+            args=(anchor, entries, args, tmp.name),
+        )
+        proc.start()
+        proc.join()
 
-                plt.tight_layout()
-                pdf.savefig(fig)
-                n_pages += 1
+        if proc.exitcode == 0:
+            temp_pdfs.append(tmp.name)
+            n_pages += 1
+        else:
+            # Negative exit code means killed by signal (e.g. -11 = SIGSEGV).
+            logger.error(
+                f"  FAILED — {key[0]}:{key[1]:,}-{key[2]:,} — "
+                f"worker exited with code {proc.exitcode} "
+                f"({'SIGSEGV/segfault' if proc.exitcode == -11 else 'error'}). "
+                f"Skipping anchor."
+            )
+            os.unlink(tmp.name)
 
-            except Exception:
-                logger.exception(
-                    f"  FAILED — {key[0]}:{key[1]:,}-{key[2]:,} — skipping anchor."
-                )
-            finally:
-                plt.close('all')
+    if temp_pdfs:
+        logger.info(f"Merging {len(temp_pdfs)} page(s) into {args.output} …")
+        _merge_pdfs(temp_pdfs, args.output)
+        for path in temp_pdfs:
+            os.unlink(path)
+    else:
+        logger.warning("No pages produced; output PDF not written.")
 
     logger.info(f"Done. {n_pages} page(s) written to {args.output}")
 
