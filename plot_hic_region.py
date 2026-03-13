@@ -2,8 +2,32 @@ import hicstraw
 import numpy as np
 import matplotlib.pyplot as plt
 import math
+from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.patches import Rectangle
 from matplotlib.backends.backend_pdf import PdfPages
+
+# ─────────────────────────────────────────────────────────────
+# v4 color scheme (white → red, tanh/MAD scaling)
+# ─────────────────────────────────────────────────────────────
+REDMAP = LinearSegmentedColormap.from_list("bright_red", [(1, 1, 1), (1, 0, 0)])
+
+
+def preprocess(matrix, scale=0.1, epsilon=1e-9):
+    '''
+    tanh/MAD contrast scaling (verbatim from anchor_hic_plots_v4.py).
+    Returns a matrix in roughly [-1, 1] suitable for REDMAP display.
+    '''
+    if np.abs(np.sum(matrix)) < epsilon:
+        return matrix
+    flat = matrix.flatten()
+    flat = flat[flat > 0]
+    if len(flat) == 0:
+        return matrix
+    median = np.median(flat)
+    mad    = np.median(np.abs(flat - median))
+    if mad == 0:
+        mad = epsilon
+    return np.tanh(scale * (matrix - median) / mad)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -44,12 +68,13 @@ def _get_matrix(hic_path, chr_name, start0, end0, start1, end1, resolution, norm
 # Helper: draw one panel onto an existing Axes
 # ─────────────────────────────────────────────────────────────
 def _draw_panel(ax, matrix, chr_name, start0, end0, start1, end1,
-                resolution, vmax, cmap, loop, title):
+                resolution, vmin, vmax, cmap, loop, title,
+                box_color="cyan", box_lw=2):
 
     im = ax.imshow(
         matrix,
         cmap=cmap,
-        vmin=0,
+        vmin=vmin,
         vmax=vmax,
         origin="upper",
         interpolation="nearest"
@@ -69,7 +94,7 @@ def _draw_panel(ax, matrix, chr_name, start0, end0, start1, end1,
         h = (loop["end0"] - loop["start0"]) / resolution
         ax.add_patch(Rectangle(
             (x, y), w, h,
-            fill=False, edgecolor="cyan", linewidth=2
+            fill=False, edgecolor=box_color, linewidth=box_lw
         ))
 
 
@@ -83,16 +108,19 @@ def draw_hic_row(
     hic_path2,
     chr_name,
     loop,
-    axes,               # sequence of exactly 3 Axes
+    axes,                   # sequence of exactly 3 Axes
     resolution=1000,
     norm="NONE",
-    vmax=1,
-    cmap="Reds",
+    vmax=1,                 # used when use_preprocess=False
+    cmap="Reds",            # used when use_preprocess=False
     overview_pad=5000,
     zoom_pad=500,
     title0="Overview",
     title1="Sample 1",
     title2="Sample 2",
+    use_preprocess=False,   # True → REDMAP + tanh/MAD (v4 style)
+    overview_scale=0.1,     # tanh scale for overview panel (use_preprocess only)
+    zoom_scale=1.0,         # tanh scale for zoom panels   (use_preprocess only)
 ):
     lo = min(loop["start0"], loop["start1"])
     hi = max(loop["end0"],   loop["end1"])
@@ -112,12 +140,31 @@ def draw_hic_row(
     mat_z1 = _get_matrix(hic_path1,    chr_name, zm_s, zm_e, zm_s, zm_e, resolution, norm)
     mat_z2 = _get_matrix(hic_path2,    chr_name, zm_s, zm_e, zm_s, zm_e, resolution, norm)
 
-    _draw_panel(axes[0], mat_ov, chr_name, ov_s, ov_e, ov_s, ov_e,
-                resolution, vmax, cmap, loop, title0)
-    _draw_panel(axes[1], mat_z1, chr_name, zm_s, zm_e, zm_s, zm_e,
-                resolution, vmax, cmap, loop, f"{title1}\n{loop_label}")
-    _draw_panel(axes[2], mat_z2, chr_name, zm_s, zm_e, zm_s, zm_e,
-                resolution, vmax, cmap, loop, f"{title2}\n{loop_label}")
+    if use_preprocess:
+        # v4 style: tanh/MAD scaling, REDMAP, shared ref/alt scale, dodgerblue box
+        proc_ov = preprocess(mat_ov, scale=overview_scale)
+        proc_z1 = preprocess(mat_z1, scale=zoom_scale)
+        proc_z2 = preprocess(mat_z2, scale=zoom_scale)
+        ov_vmin, ov_vmax = proc_ov.min(), proc_ov.max()
+        zm_vmin = min(proc_z1.min(), proc_z2.min())
+        zm_vmax = max(proc_z1.max(), proc_z2.max())
+        _draw_panel(axes[0], proc_ov, chr_name, ov_s, ov_e, ov_s, ov_e,
+                    resolution, ov_vmin, ov_vmax, REDMAP, loop, title0,
+                    box_color="dodgerblue", box_lw=0.8)
+        _draw_panel(axes[1], proc_z1, chr_name, zm_s, zm_e, zm_s, zm_e,
+                    resolution, zm_vmin, zm_vmax, REDMAP, loop, f"{title1}\n{loop_label}",
+                    box_color="dodgerblue", box_lw=0.8)
+        _draw_panel(axes[2], proc_z2, chr_name, zm_s, zm_e, zm_s, zm_e,
+                    resolution, zm_vmin, zm_vmax, REDMAP, loop, f"{title2}\n{loop_label}",
+                    box_color="dodgerblue", box_lw=0.8)
+    else:
+        # original style: raw vmax, user-supplied cmap, cyan box
+        _draw_panel(axes[0], mat_ov, chr_name, ov_s, ov_e, ov_s, ov_e,
+                    resolution, 0, vmax, cmap, loop, title0)
+        _draw_panel(axes[1], mat_z1, chr_name, zm_s, zm_e, zm_s, zm_e,
+                    resolution, 0, vmax, cmap, loop, f"{title1}\n{loop_label}")
+        _draw_panel(axes[2], mat_z2, chr_name, zm_s, zm_e, zm_s, zm_e,
+                    resolution, 0, vmax, cmap, loop, f"{title2}\n{loop_label}")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -170,12 +217,12 @@ def plot_hic_region(
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
     _draw_panel(axes[0], mat_ov, chr_name, ov_s, ov_e, ov_s, ov_e,
-                resolution, vmax, cmap, loop, title0)
+                resolution, 0, vmax, cmap, loop, title0)
     _draw_panel(axes[1], mat_z1, chr_name, zm_s, zm_e, zm_s, zm_e,
-                resolution, vmax, cmap, loop,
+                resolution, 0, vmax, cmap, loop,
                 f"{title1}\n{loop_label}" if loop_label else title1)
     _draw_panel(axes[2], mat_z2, chr_name, zm_s, zm_e, zm_s, zm_e,
-                resolution, vmax, cmap, loop,
+                resolution, 0, vmax, cmap, loop,
                 f"{title2}\n{loop_label}" if loop_label else title2)
 
     plt.tight_layout()

@@ -179,6 +179,9 @@ def _anchor_worker(anchor, entries, args, out_path):
                 title0="Unphased",
                 title1="Ref",
                 title2="Alt",
+                use_preprocess=args.preprocess,
+                overview_scale=args.overview_scale,
+                zoom_scale=args.zoom_scale,
             )
         plt.tight_layout()
         pdf.savefig(fig)
@@ -226,6 +229,17 @@ def main():
                         help='bp padding around loop bounding box for overview panel (default: 5000)')
     parser.add_argument('--zoom_pad',     default=None, type=int,
                         help='bp padding around loop bounding box for zoomed panels (default: 100)')
+    parser.add_argument('--preprocess',   default=None,
+                        type=lambda x: str(x).lower() in ('1', 'true', 'yes', 't', 'y'),
+                        help='Use v4 color scheme: REDMAP (white→red) + tanh/MAD scaling '
+                             'instead of raw Reds + vmax. '
+                             '--overview_scale and --zoom_scale control contrast. '
+                             'Accepts true/false (default: false). '
+                             'Can be set in JSON config as "preprocess": true.')
+    parser.add_argument('--overview_scale', default=None, type=float,
+                        help='tanh contrast scale for overview panel (default: 0.1, --preprocess only)')
+    parser.add_argument('--zoom_scale',     default=None, type=float,
+                        help='tanh contrast scale for zoom panels (default: 1.0, --preprocess only)')
 
     # two-pass: config file sets defaults, then CLI overrides
     pre_args, _ = parser.parse_known_args()
@@ -237,12 +251,15 @@ def main():
     args = parser.parse_args()
 
     # apply built-in defaults for anything still unset
-    if args.output       is None: args.output       = 'anchor_loop_hic.pdf'
-    if args.resolution   is None: args.resolution   = 1000
-    if args.norm         is None: args.norm         = 'NONE'
-    if args.vmax         is None: args.vmax         = 1.0
-    if args.overview_pad is None: args.overview_pad = 5000
-    if args.zoom_pad     is None: args.zoom_pad     = 100
+    if args.output         is None: args.output         = 'anchor_loop_hic.pdf'
+    if args.resolution     is None: args.resolution     = 1000
+    if args.norm           is None: args.norm           = 'NONE'
+    if args.vmax           is None: args.vmax           = 1.0
+    if args.overview_pad   is None: args.overview_pad   = 5000
+    if args.zoom_pad       is None: args.zoom_pad       = 100
+    if args.preprocess     is None: args.preprocess     = False
+    if args.overview_scale is None: args.overview_scale = 0.1
+    if args.zoom_scale     is None: args.zoom_scale     = 1.0
 
     missing = [n for n, v in [
         ('--anchor_bed',   args.anchor_bed),
