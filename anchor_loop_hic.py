@@ -19,9 +19,10 @@ sys.path.insert(0, _script_dir)
 
 import matplotlib
 matplotlib.use('agg')
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-from plot_hic_region import plot_hic_region
+from plot_hic_region import draw_hic_row
 
 # ── logging ───────────────────────────────────────────────────────────────────
 logger = logging.getLogger(__name__)
@@ -230,28 +231,39 @@ def main():
                 logger.info(f"  {key[0]}:{key[1]:,}-{key[2]:,} — no loops, skipping.")
                 continue
 
-            logger.info(f"  {key[0]}:{key[1]:,}-{key[2]:,} — {len(entries)} loop(s).")
+            n = len(entries)
+            logger.info(f"  {key[0]}:{key[1]:,}-{key[2]:,} — {n} loop(s).")
 
-            for entry in entries:
+            fig, axes_grid = plt.subplots(n, 3, figsize=(18, 6 * n),
+                                          squeeze=False)
+            fig.suptitle(
+                f"Anchor: {anchor['chr']}:{anchor['start']:,}–{anchor['end']:,}",
+                fontsize=13, y=1.0
+            )
+
+            for row_idx, entry in enumerate(entries):
                 loop = entry['loop']
-
-                plot_hic_region(
+                draw_hic_row(
                     args.unphased_hic,
                     args.ref_hic,
                     args.alt_hic,
                     loop['chr0'],
+                    loop,
+                    axes_grid[row_idx],
                     resolution=args.resolution,
                     norm=args.norm,
                     vmax=args.vmax,
-                    loop=loop,
                     overview_pad=args.overview_pad,
                     zoom_pad=args.zoom_pad,
-                    title0=f"Unphased\nAnchor: {anchor['chr']}:{anchor['start']:,}–{anchor['end']:,}",
+                    title0="Unphased",
                     title1="Ref",
                     title2="Alt",
-                    pdf=pdf,
                 )
-                n_pages += 1
+
+            plt.tight_layout()
+            pdf.savefig(fig)
+            plt.close(fig)
+            n_pages += 1
 
     logger.info(f"Done. {n_pages} page(s) written to {args.output}")
 

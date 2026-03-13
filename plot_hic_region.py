@@ -74,6 +74,53 @@ def _draw_panel(ax, matrix, chr_name, start0, end0, start1, end1,
 
 
 # ─────────────────────────────────────────────────────────────
+# Draw one loop row onto three provided Axes objects.
+# Used by anchor_loop_hic.py to build multi-row per-anchor pages.
+# ─────────────────────────────────────────────────────────────
+def draw_hic_row(
+    hic_overview,
+    hic_path1,
+    hic_path2,
+    chr_name,
+    loop,
+    axes,               # sequence of exactly 3 Axes
+    resolution=1000,
+    norm="NONE",
+    vmax=1,
+    cmap="Reds",
+    overview_pad=5000,
+    zoom_pad=500,
+    title0="Overview",
+    title1="Sample 1",
+    title2="Sample 2",
+):
+    lo = min(loop["start0"], loop["start1"])
+    hi = max(loop["end0"],   loop["end1"])
+
+    ov_s = ((lo - overview_pad) // resolution) * resolution
+    ov_e = math.ceil((hi + overview_pad) / resolution) * resolution
+
+    zm_s = ((lo - zoom_pad) // resolution) * resolution
+    zm_e = math.ceil((hi + zoom_pad) / resolution) * resolution
+
+    loop_label = (f"{chr_name}:{loop['start0']:,}–{loop['end0']:,}"
+                  f"  ×  {chr_name}:{loop['start1']:,}–{loop['end1']:,}")
+
+    print(f"OV region: {chr_name}:{ov_s}-{ov_e}", flush=True)
+    print(f"ZM region: {chr_name}:{zm_s}-{zm_e}", flush=True)
+    mat_ov = _get_matrix(hic_overview, chr_name, ov_s, ov_e, ov_s, ov_e, resolution, norm)
+    mat_z1 = _get_matrix(hic_path1,    chr_name, zm_s, zm_e, zm_s, zm_e, resolution, norm)
+    mat_z2 = _get_matrix(hic_path2,    chr_name, zm_s, zm_e, zm_s, zm_e, resolution, norm)
+
+    _draw_panel(axes[0], mat_ov, chr_name, ov_s, ov_e, ov_s, ov_e,
+                resolution, vmax, cmap, loop, title0)
+    _draw_panel(axes[1], mat_z1, chr_name, zm_s, zm_e, zm_s, zm_e,
+                resolution, vmax, cmap, loop, f"{title1}\n{loop_label}")
+    _draw_panel(axes[2], mat_z2, chr_name, zm_s, zm_e, zm_s, zm_e,
+                resolution, vmax, cmap, loop, f"{title2}\n{loop_label}")
+
+
+# ─────────────────────────────────────────────────────────────
 # Main plotting function
 # Panel 0: hic_overview  — wide symmetric region around the loop
 # Panel 1: hic_path1     — zoomed in on loop anchors
