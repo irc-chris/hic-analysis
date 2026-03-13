@@ -10,6 +10,7 @@ import os
 import sys
 import argparse
 import logging
+import math
 import multiprocessing
 import tempfile
 
@@ -147,13 +148,16 @@ def group_loops_by_anchor(loops, anchors):
 
 # ── subprocess worker ─────────────────────────────────────────────────────────
 
-def _anchor_worker(anchor, entries, args, out_path):
+def _anchor_worker(anchor, entries, args, out_path, result_queue=None):
     '''
     Runs in a child process. Renders one anchor page (N loop rows × 3 cols)
     and writes it to out_path as a single-page PDF.
 
     If this process crashes (e.g. segfault from hicstraw), only the child dies;
     the parent detects the non-zero exit code and skips this anchor.
+
+    result_queue: multiprocessing.Queue — if provided, puts a dict with
+        chr/start/end/anc_REF/anc_ALT/anc_lfc onto the queue before exiting.
     '''
     n          = len(entries)
     fig_height = 4 * n
@@ -190,6 +194,23 @@ def _anchor_worker(anchor, entries, args, out_path):
             all_csums.append(csums)
         anc_REF = sum(s[1] for s in all_csums)
         anc_ALT = sum(s[2] for s in all_csums)
+        if anc_REF > 0 and anc_ALT > 0:
+            anc_lfc = math.log2(anc_REF / anc_ALT)
+        elif anc_REF == 0 and anc_ALT == 0:
+            anc_lfc = float('nan')
+        elif anc_ALT == 0:
+            anc_lfc = float('inf')
+        else:
+            anc_lfc = float('-inf')
+        if result_queue is not None:
+            result_queue.put({
+                'chr':     anchor['chr'],
+                'start':   anchor['start'],
+                'end':     anchor['end'],
+                'anc_REF': anc_REF,
+                'anc_ALT': anc_ALT,
+                'anc_lfc': anc_lfc,
+            })
         top_frac = 1.0 - 0.7 / fig_height
         plt.tight_layout(rect=[0.02, 0.1, 1.0, top_frac], h_pad=0.2)
         render_anchor_header(fig, fig_height, anchor,
@@ -299,8 +320,9 @@ def main():
 
     logger.info(f"{len(anchors)} anchor(s), {len(loops)} loop(s) loaded.")
 
-    n_pages   = 0
-    temp_pdfs = []   # (anchor_key, path) for each successful child
+    n_pages      = 0
+    temp_pdfs    = []
+    anchor_stats = []   # dicts from result_queue, one per successful anchor
 
     for anchor in anchors:
         key     = (anchor['chr'], anchor['start'], anchor['end'])
@@ -317,9 +339,10 @@ def main():
         tmp = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
         tmp.close()
 
+        result_queue = multiprocessing.Queue()
         proc = multiprocessing.Process(
             target=_anchor_worker,
-            args=(anchor, entries, args, tmp.name),
+            args=(anchor, entries, args, tmp.name, result_queue),
         )
         proc.start()
         proc.join()
@@ -327,6 +350,8 @@ def main():
         if proc.exitcode == 0:
             temp_pdfs.append(tmp.name)
             n_pages += 1
+            if not result_queue.empty():
+                anchor_stats.append(result_queue.get())
         else:
             # Negative exit code means killed by signal (e.g. -11 = SIGSEGV).
             logger.error(
@@ -344,6 +369,17 @@ def main():
             os.unlink(path)
     else:
         logger.warning("No pages produced; output PDF not written.")
+
+    if anchor_stats:
+        tsv_path = os.path.splitext(args.output)[0] + '_anchor_stats.tsv'
+        with open(tsv_path, 'w') as fh:
+            fh.write('chr\tstart\tend\tanc_REF\tanc_ALT\tanc_lfc\n')
+            for s in anchor_stats:
+                fh.write(
+                    f"{s['chr']}\t{s['start']}\t{s['end']}\t"
+                    f"{s['anc_REF']:.4f}\t{s['anc_ALT']:.4f}\t{s['anc_lfc']:.4f}\n"
+                )
+        logger.info(f"Anchor stats TSV: {tsv_path}  ({len(anchor_stats)} row(s))")
 
     logger.info(f"Done. {n_pages} page(s) written to {args.output}")
 
