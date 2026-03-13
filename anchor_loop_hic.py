@@ -186,19 +186,13 @@ def _anchor_worker(anchor, entries, args, out_path):
 
 
 def _merge_pdfs(paths, output):
-    '''Concatenate a list of single-page PDFs into one output PDF.'''
-    try:
-        from pypdf import PdfWriter, PdfReader
-    except ImportError:
-        from PyPDF2 import PdfWriter, PdfReader  # older name
-
-    writer = PdfWriter()
-    for path in paths:
-        reader = PdfReader(path)
-        for page in reader.pages:
-            writer.add_page(page)
-    with open(output, 'wb') as fh:
-        writer.write(fh)
+    '''Concatenate a list of PDFs into one output PDF using ghostscript.'''
+    import subprocess
+    subprocess.run(
+        ['gs', '-dBATCH', '-dNOPAUSE', '-q', '-sDEVICE=pdfwrite',
+         f'-sOutputFile={output}', *paths],
+        check=True,
+    )
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
