@@ -1,0 +1,13 @@
+{
+    "outp_dir":      "/mnt/altnas/work/ishawnia/empvsag/hic-output",
+    "anchor_bed":    "/mnt/altnas/work/ishawnia/empvsag/comparing-across/group_bad_AG_vs_ENCSR000DRZ_hap_wasp_thresh15.0_abs1.0.tsv",
+    "loop_bedpe":    "/mnt/altnas/work/ishawnia/original_daphne/parameters/localizedList_primary_10_highres_CTCF_tagged-REMADE-uniq.bedpe",
+    "unphased_hic":  "https://s3.us-central-1.wasabisys.com/aiden-ragini/public/ultramaps/gm12878/inter_30.hic",
+    "ref_hic":       "https://s3.us-east-1.wasabisys.com/aiden-suhas/hic_files/FINAL_GRCh38_processing/LCL/GM12878/diploid/r.hic",
+    "alt_hic":       "https://s3.us-east-1.wasabisys.com/aiden-suhas/hic_files/FINAL_GRCh38_processing/LCL/GM12878/diploid/a.hic",
+    "norm":          "NONE",
+    "resolution":    1000,
+    "width":         250000,
+    "output_name":   "wasp_output",
+    "max_loops_per_page": 12
+}

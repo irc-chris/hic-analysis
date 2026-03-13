@@ -1,0 +1,17 @@
+{
+    "outp_dir":      "/mnt/altnas/work/ishawnia/empvsag/hic-output",
+    "anchor_bed":    "/mnt/altnas/work/ishawnia/empvsag/comparing-across/subset-wasp.tsv",
+    "loop_bedpe":    "/mnt/altnas/work/suhas/temp_processing/intact_HiC_GRCh38_juicer2/LCLs/combined_loops/merged_counts_filter_20/graph_theory/localizer_redo/output/highRes_primary_loopAnchors.bed",
+    "unphased_hic":  "https://s3.us-central-1.wasabisys.com/aiden-ragini/public/ultramaps/gm12878/inter_30.hic",
+    "ref_hic":       "https://s3.us-east-1.wasabisys.com/aiden-suhas/hic_files/FINAL_GRCh38_processing/LCL/GM12878/diploid/r.hic",
+    "alt_hic":       "https://s3.us-east-1.wasabisys.com/aiden-suhas/hic_files/FINAL_GRCh38_processing/LCL/GM12878/diploid/a.hic",
+    "norm":          "NONE",
+    "resolution":    1000,
+    "unphased_resolution": 5000,
+    "phased_resolution":   1000,
+    "unphased_scale":      0.1,
+    "phased_scale":        3.0,
+    "width":         50000,
+    "output_name":   "new-loops-subset-zoomsqmy",
+    "max_loops_per_page": 12
+}

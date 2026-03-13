@@ -1,0 +1,13 @@
+{
+    "anchor_bed":   "/mnt/altnas/work/ishawnia/empvsag/hic-analysis/subset-wasp-1.tsv",
+    "loop_bedpe":   "/mnt/altnas/work/suhas/temp_processing/intact_HiC_GRCh38_juicer2/LCLs/combined_loops/merged_counts_filter_20/graph_theory/localizer_redo/output/highRes_primary_loopAnchors.bed",
+    "unphased_hic": "/gpfs0/work/suhas/temp_processing/Juicer2_hg38_reprocess/combined/LCL/GM12878/combined_new_8.7.23/total/inter_30.hic",
+    "ref_hic":      "/mnt/altnas/work2/suhas/temp_processing/intact_HiC_GRCh38_juicer2/LCLs/diploid_maps/GM12878/total/r.hic",
+    "alt_hic":      "/mnt/altnas/work2/suhas/temp_processing/intact_HiC_GRCh38_juicer2/LCLs/diploid_maps/GM12878/total/a.hic",
+    "output":       "out3.pdf",
+    "resolution":   10,
+    "norm":         "NONE",
+    "vmax":         1.0,
+    "overview_pad": 5000,
+    "zoom_pad":     100
+}

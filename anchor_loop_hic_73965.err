@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/var/spool/slurm/job73965/slurm_script", line 24, in <module>
+    from plot_hic_region import plot_hic_region
+  File "/mnt/altnas/work/ishawnia/empvsag/hic-analysis/plot_hic_region.py", line 125
+    print(f"OV region: {chr_name}:{ov_s}-{ov_e}" flush=True)
+                                                     ^
+SyntaxError: invalid syntax

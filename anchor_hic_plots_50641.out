@@ -1,0 +1,37 @@
+[18:45:31] anchor_hic_plots_v4.py — arguments:
+  Output dir:         /mnt/altnas/work/ishawnia/empvsag/hic-output
+  Anchor BED:         /mnt/altnas/work/ishawnia/empvsag/comparing-across/subset-wasp.tsv
+  Loop BEDPE:         /mnt/altnas/work/suhas/temp_processing/intact_HiC_GRCh38_juicer2/LCLs/combined_loops/merged_counts_filter_20/graph_theory/localizer_redo/output/highRes_primary_loopAnchors.bed
+  Unphased HiC:       https://s3.us-central-1.wasabisys.com/aiden-ragini/public/ultramaps/gm12878/inter_30.hic
+  Ref HiC:            https://s3.us-east-1.wasabisys.com/aiden-suhas/hic_files/FINAL_GRCh38_processing/LCL/GM12878/diploid/r.hic
+  Alt HiC:            https://s3.us-east-1.wasabisys.com/aiden-suhas/hic_files/FINAL_GRCh38_processing/LCL/GM12878/diploid/a.hic
+  Norm:               NONE
+  Resolution:         unphased=5000 bp  phased=1000 bp
+  tanh scale:         unphased=0.1  phased=3.0
+  View half-width:    50,000 bp  (100 kb total)
+  Max loops/page:     12
+
+[18:45:31] Parsing anchor BED...
+[18:45:31]   14 anchor(s) loaded.
+[18:45:31]   AlphaGenome values: 14/14  |  ChIP-seq values: 14/14
+[18:45:31] Parsing loop BEDPE...
+[18:45:35]   124832 loop(s) loaded.
+[18:45:35] Grouping loops by anchor...
+
+[18:45:36] Writing PDF: /mnt/altnas/work/ishawnia/empvsag/hic-output/new-loops-subset-zoomsqmy.pdf
+[18:45:36]   chr1:1,019,276-1,019,776  — 2 loop(s), 1 page(s).
+[18:46:04]   chr10:29,449,156-29,449,250  — 2 loop(s), 1 page(s).
+[18:46:33]   chr12:49,966,932-49,967,728  — 1 loop(s), 1 page(s).
+[18:48:49]   chr14:22,556,999-22,557,483  — 2 loop(s), 1 page(s).
+[18:49:13]   chr14:106,564,201-106,564,275  — 2 loop(s), 1 page(s).
+[18:49:18]   chr16:10,256,830-10,257,260  — 2 loop(s), 1 page(s).
+[18:49:44]   chr17:3,602,688-3,602,760  — 1 loop(s), 1 page(s).
+[18:50:01]   chr17:34,361,633-34,361,717  — 1 loop(s), 1 page(s).
+[18:50:09]   chr17:82,494,711-82,494,907  — 3 loop(s), 1 page(s).
+[18:50:53]   chr19:49,443,573-49,444,053  — 2 loop(s), 1 page(s).
+[18:51:28]   chr2:113,979,627-113,979,899  — 2 loop(s), 1 page(s).
+[18:51:55]   chr3:43,996,358-43,996,504  — 4 loop(s), 1 page(s).
+[18:53:16]   chr9:20,941,237-20,941,311  — 1 loop(s), 1 page(s).
+[18:53:38]   chrX:110,145,938-110,146,092  — 4 loop(s), 1 page(s).
+
+[18:54:20] Done. 14 page(s) written to /mnt/altnas/work/ishawnia/empvsag/hic-output/new-loops-subset-zoomsqmy.pdf
