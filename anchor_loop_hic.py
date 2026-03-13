@@ -24,7 +24,7 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-from plot_hic_region import draw_hic_row
+from plot_hic_region import draw_hic_row, render_anchor_header
 
 # ── logging ───────────────────────────────────────────────────────────────────
 logger = logging.getLogger(__name__)
@@ -155,16 +155,14 @@ def _anchor_worker(anchor, entries, args, out_path):
     If this process crashes (e.g. segfault from hicstraw), only the child dies;
     the parent detects the non-zero exit code and skips this anchor.
     '''
-    n = len(entries)
+    n          = len(entries)
+    fig_height = 6 * n
     with PdfPages(out_path) as pdf:
-        fig, axes_grid = plt.subplots(n, 3, figsize=(18, 6 * n), squeeze=False)
-        fig.suptitle(
-            f"Anchor: {anchor['chr']}:{anchor['start']:,}–{anchor['end']:,}",
-            fontsize=13, y=1.0
-        )
+        fig, axes_grid = plt.subplots(n, 3, figsize=(18, fig_height), squeeze=False)
+        all_csums = []
         for row_idx, entry in enumerate(entries):
-            loop = entry['loop']
-            draw_hic_row(
+            loop  = entry['loop']
+            csums = draw_hic_row(
                 args.unphased_hic,
                 args.ref_hic,
                 args.alt_hic,
@@ -182,9 +180,17 @@ def _anchor_worker(anchor, entries, args, out_path):
                 use_preprocess=args.preprocess,
                 overview_scale=args.overview_scale,
                 zoom_scale=args.zoom_scale,
+                row_idx=row_idx,
             )
-        plt.tight_layout()
-        pdf.savefig(fig)
+            all_csums.append(csums)
+        anc_REF = sum(s[1] for s in all_csums)
+        anc_ALT = sum(s[2] for s in all_csums)
+        # leave ~0.7 in at top for header, ~20% on left for row labels
+        top_frac = 1.0 - 0.7 / fig_height
+        plt.tight_layout(rect=[0.20, 0.02, 1.0, top_frac])
+        render_anchor_header(fig, fig_height, anchor,
+                             anc_ref=anc_REF, anc_alt=anc_ALT)
+        pdf.savefig(fig, bbox_inches='tight')
         plt.close(fig)
 
 

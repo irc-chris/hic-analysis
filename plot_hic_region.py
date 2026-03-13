@@ -30,6 +30,89 @@ def preprocess(matrix, scale=0.1, epsilon=1e-9):
     return np.tanh(scale * (matrix - median) / mad)
 
 
+def compute_anchor_sum(matrix, bin_r0, bin_r1, bin_c0, bin_c1):
+    '''
+    Returns the sum of raw contacts within the loop anchor region.
+
+    bin_r0/r1 — row (y-axis) bin range for anchor-0 start/end
+    bin_c0/c1 — col (x-axis) bin range for anchor-1 start/end
+
+    Uses floor/ceil so anchors smaller than one resolution bin still
+    contribute at least 1 bin on each axis (avoids returning 0 for tiny
+    anchors).  Values are clamped to the matrix bounds.
+    '''
+    ri0 = max(0,               int(np.floor(bin_r0)))
+    ri1 = min(matrix.shape[0], max(ri0 + 1, int(np.ceil(bin_r1))))
+    ci0 = max(0,               int(np.floor(bin_c0)))
+    ci1 = min(matrix.shape[1], max(ci0 + 1, int(np.ceil(bin_c1))))
+    return float(matrix[ri0:ri1, ci0:ci1].sum())
+
+
+def _build_header(anchor, page_num=None, total_pages=None,
+                  anc_ref=None, anc_alt=None):
+    '''Returns (anchor_bold, metrics_normal, line2_normal).
+
+    anchor_bold   : "Anchor: chrX:start–end"         → rendered bold
+    metrics_normal: "   anc_REF: X   anc_ALT: X"     → normal, same line
+    line2_normal  : "AlphaGenome pred: X  |  ..."     → normal, second line
+    '''
+    anchor_bold = f"Anchor: {anchor['chr']}:{anchor['start']:,}–{anchor['end']:,}"
+
+    if anc_ref is not None and anc_alt is not None:
+        metrics_normal = f"   anc_REF: {anc_ref:,.0f}   anc_ALT: {anc_alt:,.0f}"
+    else:
+        metrics_normal = ""
+
+    parts2 = []
+    if anchor.get('ag') is not None:
+        parts2.append(f"AlphaGenome pred: {anchor['ag']:.3g}")
+    if anchor.get('chipseq') is not None:
+        parts2.append(f"empiric ChIP-seq: {anchor['chipseq']:.3g}")
+    if anc_ref is not None and anc_alt is not None:
+        if anc_ref > 0 and anc_alt > 0:
+            parts2.append(f"Hi-C: {np.log2(anc_ref / anc_alt):+.2f}")
+        elif anc_ref == 0 and anc_alt == 0:
+            parts2.append("Hi-C: N/A")
+        elif anc_alt == 0:
+            parts2.append("Hi-C: +\u221e")
+        else:
+            parts2.append("Hi-C: \u2212\u221e")
+    if page_num is not None and total_pages is not None and total_pages > 1:
+        parts2.append(f"page {page_num} of {total_pages}")
+
+    return anchor_bold, metrics_normal, "   |   ".join(parts2)
+
+
+def _render_header(fig, fig_height, anchor_bold, metrics_normal, line2_normal):
+    '''Renders the two-line page header with mixed bold/normal on line 1.
+
+    Bold anchor label is right-aligned at x=0.5; normal metrics are
+    left-aligned at x=0.5 — visually centered around the midpoint.
+    '''
+    y1 = 1.0 - 0.10 / fig_height   # ~0.10 in from top
+    y2 = 1.0 - 0.28 / fig_height   # ~0.28 in from top (~0.18 in below line 1)
+
+    fig.text(0.5, y1, anchor_bold,
+             ha='right', va='top', fontsize=9, fontweight='bold',
+             transform=fig.transFigure)
+    if metrics_normal:
+        fig.text(0.5, y1, metrics_normal,
+                 ha='left', va='top', fontsize=9,
+                 transform=fig.transFigure)
+    if line2_normal:
+        fig.text(0.5, y2, line2_normal,
+                 ha='center', va='top', fontsize=8.5,
+                 transform=fig.transFigure)
+
+
+def render_anchor_header(fig, fig_height, anchor, anc_ref=None, anc_alt=None,
+                         page_num=None, total_pages=None):
+    '''Convenience wrapper: builds and renders the per-page anchor header.'''
+    _render_header(fig, fig_height,
+                   *_build_header(anchor, page_num, total_pages,
+                                  anc_ref=anc_ref, anc_alt=anc_alt))
+
+
 # ─────────────────────────────────────────────────────────────
 # Cache objects so we don't reopen the hic file repeatedly
 # ─────────────────────────────────────────────────────────────
@@ -121,9 +204,12 @@ def draw_hic_row(
     use_preprocess=False,   # True → REDMAP + tanh/MAD (v4 style)
     overview_scale=0.1,     # tanh scale for overview panel (use_preprocess only)
     zoom_scale=1.0,         # tanh scale for zoom panels   (use_preprocess only)
+    row_idx=0,              # 0-based row index used for the left-margin row label
 ):
-    lo = min(loop["start0"], loop["start1"])
-    hi = max(loop["end0"],   loop["end1"])
+    lo   = min(loop["start0"], loop["start1"])
+    hi   = max(loop["end0"],   loop["end1"])
+    mid0 = (loop["start0"] + loop["end0"]) // 2
+    mid1 = (loop["start1"] + loop["end1"]) // 2
 
     ov_s = ((lo - overview_pad) // resolution) * resolution
     ov_e = math.ceil((hi + overview_pad) / resolution) * resolution
@@ -131,14 +217,49 @@ def draw_hic_row(
     zm_s = ((lo - zoom_pad) // resolution) * resolution
     zm_e = math.ceil((hi + zoom_pad) / resolution) * resolution
 
-    loop_label = (f"{chr_name}:{loop['start0']:,}–{loop['end0']:,}"
-                  f"  ×  {chr_name}:{loop['start1']:,}–{loop['end1']:,}")
-
     print(f"OV region: {chr_name}:{ov_s}-{ov_e}", flush=True)
     print(f"ZM region: {chr_name}:{zm_s}-{zm_e}", flush=True)
     mat_ov = _get_matrix(hic_overview, chr_name, ov_s, ov_e, ov_s, ov_e, resolution, norm)
     mat_z1 = _get_matrix(hic_path1,    chr_name, zm_s, zm_e, zm_s, zm_e, resolution, norm)
     mat_z2 = _get_matrix(hic_path2,    chr_name, zm_s, zm_e, zm_s, zm_e, resolution, norm)
+
+    # ── Σ contact sums within the loop anchor region ──────────────────────────
+    sum_ov = compute_anchor_sum(mat_ov,
+                 (loop['start0'] - ov_s) / resolution,
+                 (loop['end0']   - ov_s) / resolution,
+                 (loop['start1'] - ov_s) / resolution,
+                 (loop['end1']   - ov_s) / resolution)
+    sum_z1 = compute_anchor_sum(mat_z1,
+                 (loop['start0'] - zm_s) / resolution,
+                 (loop['end0']   - zm_s) / resolution,
+                 (loop['start1'] - zm_s) / resolution,
+                 (loop['end1']   - zm_s) / resolution)
+    sum_z2 = compute_anchor_sum(mat_z2,
+                 (loop['start0'] - zm_s) / resolution,
+                 (loop['end0']   - zm_s) / resolution,
+                 (loop['start1'] - zm_s) / resolution,
+                 (loop['end1']   - zm_s) / resolution)
+
+    # ── allelic metrics ───────────────────────────────────────────────────────
+    if sum_z1 > 0 and sum_z2 > 0:
+        ratio       = sum_z1 / sum_z2
+        log2fc      = np.log2(ratio)
+        allelic_str = f"R/A: {ratio:.2f}\u00d7   log2FC: {log2fc:+.2f}"
+    elif sum_z1 == 0 and sum_z2 == 0:
+        allelic_str = "R/A: N/A   log2FC: N/A"
+    elif sum_z2 == 0:
+        allelic_str = "R/A: \u221e   log2FC: +\u221e"
+    else:
+        allelic_str = "R/A: 0   log2FC: \u2212\u221e"
+
+    # ── row label text (rendered on axes[0] left margin after drawing) ────────
+    row_label = (
+        f"Loop {row_idx + 1}\n"
+        f"{chr_name}:{loop['start0']:,}-{loop['end0']:,}\n"
+        f"\u00d7 {chr_name}:{loop['start1']:,}-{loop['end1']:,}\n"
+        f"dist: {abs(mid1 - mid0) / 1000:.0f} kb\n"
+        f"{allelic_str}"
+    )
 
     if use_preprocess:
         # v4 style: tanh/MAD scaling, REDMAP, shared ref/alt scale, dodgerblue box
@@ -149,22 +270,46 @@ def draw_hic_row(
         zm_vmin = min(proc_z1.min(), proc_z2.min())
         zm_vmax = max(proc_z1.max(), proc_z2.max())
         _draw_panel(axes[0], proc_ov, chr_name, ov_s, ov_e, ov_s, ov_e,
-                    resolution, ov_vmin, ov_vmax, REDMAP, loop, title0,
+                    resolution, ov_vmin, ov_vmax, REDMAP, loop,
+                    f"{title0}  \u03a3={sum_ov:,.0f}",
                     box_color="dodgerblue", box_lw=0.8)
         _draw_panel(axes[1], proc_z1, chr_name, zm_s, zm_e, zm_s, zm_e,
-                    resolution, zm_vmin, zm_vmax, REDMAP, loop, f"{title1}\n{loop_label}",
+                    resolution, zm_vmin, zm_vmax, REDMAP, loop,
+                    f"{title1}  \u03a3={sum_z1:,.0f}",
                     box_color="dodgerblue", box_lw=0.8)
         _draw_panel(axes[2], proc_z2, chr_name, zm_s, zm_e, zm_s, zm_e,
-                    resolution, zm_vmin, zm_vmax, REDMAP, loop, f"{title2}\n{loop_label}",
+                    resolution, zm_vmin, zm_vmax, REDMAP, loop,
+                    f"{title2}  \u03a3={sum_z2:,.0f}",
                     box_color="dodgerblue", box_lw=0.8)
     else:
         # original style: raw vmax, user-supplied cmap, cyan box
         _draw_panel(axes[0], mat_ov, chr_name, ov_s, ov_e, ov_s, ov_e,
-                    resolution, 0, vmax, cmap, loop, title0)
+                    resolution, 0, vmax, cmap, loop,
+                    f"{title0}  \u03a3={sum_ov:,.0f}")
         _draw_panel(axes[1], mat_z1, chr_name, zm_s, zm_e, zm_s, zm_e,
-                    resolution, 0, vmax, cmap, loop, f"{title1}\n{loop_label}")
+                    resolution, 0, vmax, cmap, loop,
+                    f"{title1}  \u03a3={sum_z1:,.0f}")
         _draw_panel(axes[2], mat_z2, chr_name, zm_s, zm_e, zm_s, zm_e,
-                    resolution, 0, vmax, cmap, loop, f"{title2}\n{loop_label}")
+                    resolution, 0, vmax, cmap, loop,
+                    f"{title2}  \u03a3={sum_z2:,.0f}")
+
+    # ── row label on left margin of first panel ───────────────────────────────
+    axes[0].text(
+        -0.02, 0.5, row_label,
+        transform=axes[0].transAxes,
+        fontsize=6.5, ha='right', va='center',
+        fontfamily='monospace', clip_on=False,
+    )
+
+    # ── view/loop xlabel on first panel (top edge) ────────────────────────────
+    axes[0].set_xlabel(
+        f"View: {chr_name}:{ov_s:,}\u2013{ov_e:,}"
+        f"\nLoop: {chr_name}:{loop['start1']:,}\u2013{loop['end1']:,}",
+        fontsize=6, color='black',
+    )
+    axes[0].xaxis.set_label_position('top')
+
+    return sum_ov, sum_z1, sum_z2
 
 
 # ─────────────────────────────────────────────────────────────
