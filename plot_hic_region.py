@@ -204,7 +204,8 @@ def draw_hic_row(
     use_preprocess=False,   # True → REDMAP + tanh/MAD (v4 style)
     overview_scale=0.1,     # tanh scale for overview panel (use_preprocess only)
     zoom_scale=1.0,         # tanh scale for zoom panels   (use_preprocess only)
-    row_idx=0,              # 0-based row index used for the left-margin row label
+    row_idx=0,              # 0-based row index used for the row label
+    label_ax=None,          # if given, row label is rendered there; else floats on axes[0]
 ):
     lo   = min(loop["start0"], loop["start1"])
     hi   = max(loop["end0"],   loop["end1"])
@@ -293,13 +294,19 @@ def draw_hic_row(
                     resolution, 0, vmax, cmap, loop,
                     f"{title2}  \u03a3={sum_z2:,.0f}")
 
-    # ── row label along the y-axis of first panel ────────────────────────────
-    axes[0].text(
-        -0.05, 0.5, row_label,
-        transform=axes[0].transAxes,
+    # ── row label: dedicated axis column (preferred) or left margin fallback ──
+    _label_target = label_ax if label_ax is not None else axes[0]
+    if label_ax is not None:
+        label_ax.axis('off')
+        x_pos, y_pos, clip = 0.5, 0.5, True
+    else:
+        x_pos, y_pos, clip = -0.05, 0.5, False
+    _label_target.text(
+        x_pos, y_pos, row_label,
+        transform=_label_target.transAxes,
         fontsize=6.5, ha='center', va='center',
         rotation=90, rotation_mode='anchor',
-        fontfamily='monospace', clip_on=False,
+        fontfamily='monospace', clip_on=clip,
     )
 
     # ── view/loop xlabel on first panel (top edge) ────────────────────────────

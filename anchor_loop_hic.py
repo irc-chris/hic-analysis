@@ -158,7 +158,11 @@ def _anchor_worker(anchor, entries, args, out_path):
     n          = len(entries)
     fig_height = 6 * n
     with PdfPages(out_path) as pdf:
-        fig, axes_grid = plt.subplots(n, 3, figsize=(18, fig_height), squeeze=False)
+        # col 0 = narrow label column; cols 1-3 = Unphased / Ref / Alt
+        fig, axes_grid = plt.subplots(
+            n, 4, figsize=(18, fig_height), squeeze=False,
+            gridspec_kw={'width_ratios': [0.18, 1, 1, 1]},
+        )
         all_csums = []
         for row_idx, entry in enumerate(entries):
             loop  = entry['loop']
@@ -168,7 +172,7 @@ def _anchor_worker(anchor, entries, args, out_path):
                 args.alt_hic,
                 loop['chr0'],
                 loop,
-                axes_grid[row_idx],
+                axes_grid[row_idx, 1:],   # 3 data panels
                 resolution=args.resolution,
                 norm=args.norm,
                 vmax=args.vmax,
@@ -181,13 +185,13 @@ def _anchor_worker(anchor, entries, args, out_path):
                 overview_scale=args.overview_scale,
                 zoom_scale=args.zoom_scale,
                 row_idx=row_idx,
+                label_ax=axes_grid[row_idx, 0],  # dedicated label column
             )
             all_csums.append(csums)
         anc_REF = sum(s[1] for s in all_csums)
         anc_ALT = sum(s[2] for s in all_csums)
-        # leave ~0.7 in at top for header, ~20% on left for row labels
         top_frac = 1.0 - 0.7 / fig_height
-        plt.tight_layout(rect=[0.20, 0.02, 1.0, top_frac], h_pad=0.5)
+        plt.tight_layout(rect=[0.02, 0.02, 1.0, top_frac], h_pad=0.5)
         render_anchor_header(fig, fig_height, anchor,
                              anc_ref=anc_REF, anc_alt=anc_ALT)
         pdf.savefig(fig, bbox_inches='tight')
