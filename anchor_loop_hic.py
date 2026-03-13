@@ -234,36 +234,43 @@ def main():
             n = len(entries)
             logger.info(f"  {key[0]}:{key[1]:,}-{key[2]:,} — {n} loop(s).")
 
-            fig, axes_grid = plt.subplots(n, 3, figsize=(18, 6 * n),
-                                          squeeze=False)
-            fig.suptitle(
-                f"Anchor: {anchor['chr']}:{anchor['start']:,}–{anchor['end']:,}",
-                fontsize=13, y=1.0
-            )
-
-            for row_idx, entry in enumerate(entries):
-                loop = entry['loop']
-                draw_hic_row(
-                    args.unphased_hic,
-                    args.ref_hic,
-                    args.alt_hic,
-                    loop['chr0'],
-                    loop,
-                    axes_grid[row_idx],
-                    resolution=args.resolution,
-                    norm=args.norm,
-                    vmax=args.vmax,
-                    overview_pad=args.overview_pad,
-                    zoom_pad=args.zoom_pad,
-                    title0="Unphased",
-                    title1="Ref",
-                    title2="Alt",
+            try:
+                fig, axes_grid = plt.subplots(n, 3, figsize=(18, 6 * n),
+                                              squeeze=False)
+                fig.suptitle(
+                    f"Anchor: {anchor['chr']}:{anchor['start']:,}–{anchor['end']:,}",
+                    fontsize=13, y=1.0
                 )
 
-            plt.tight_layout()
-            pdf.savefig(fig)
-            plt.close(fig)
-            n_pages += 1
+                for row_idx, entry in enumerate(entries):
+                    loop = entry['loop']
+                    draw_hic_row(
+                        args.unphased_hic,
+                        args.ref_hic,
+                        args.alt_hic,
+                        loop['chr0'],
+                        loop,
+                        axes_grid[row_idx],
+                        resolution=args.resolution,
+                        norm=args.norm,
+                        vmax=args.vmax,
+                        overview_pad=args.overview_pad,
+                        zoom_pad=args.zoom_pad,
+                        title0="Unphased",
+                        title1="Ref",
+                        title2="Alt",
+                    )
+
+                plt.tight_layout()
+                pdf.savefig(fig)
+                n_pages += 1
+
+            except Exception:
+                logger.exception(
+                    f"  FAILED — {key[0]}:{key[1]:,}-{key[2]:,} — skipping anchor."
+                )
+            finally:
+                plt.close('all')
 
     logger.info(f"Done. {n_pages} page(s) written to {args.output}")
 
