@@ -293,11 +293,12 @@ def draw_hic_row(
                     resolution, 0, vmax, cmap, loop,
                     f"{title2}  \u03a3={sum_z2:,.0f}")
 
-    # ── row label on left margin of first panel ───────────────────────────────
+    # ── row label along the y-axis of first panel ────────────────────────────
     axes[0].text(
-        -0.02, 0.5, row_label,
+        -0.05, 0.5, row_label,
         transform=axes[0].transAxes,
-        fontsize=6.5, ha='right', va='center',
+        fontsize=6.5, ha='center', va='center',
+        rotation=90, rotation_mode='anchor',
         fontfamily='monospace', clip_on=False,
     )
 

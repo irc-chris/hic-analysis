@@ -187,7 +187,7 @@ def _anchor_worker(anchor, entries, args, out_path):
         anc_ALT = sum(s[2] for s in all_csums)
         # leave ~0.7 in at top for header, ~20% on left for row labels
         top_frac = 1.0 - 0.7 / fig_height
-        plt.tight_layout(rect=[0.20, 0.02, 1.0, top_frac])
+        plt.tight_layout(rect=[0.20, 0.02, 1.0, top_frac], h_pad=0.5)
         render_anchor_header(fig, fig_height, anchor,
                              anc_ref=anc_REF, anc_alt=anc_ALT)
         pdf.savefig(fig, bbox_inches='tight')
