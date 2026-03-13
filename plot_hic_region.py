@@ -298,7 +298,7 @@ def draw_hic_row(
     _label_target = label_ax if label_ax is not None else axes[0]
     if label_ax is not None:
         label_ax.axis('off')
-        x_pos, y_pos, clip = 0.5, 0.5, True
+        x_pos, y_pos, clip = 0.5, 0.5, False
     else:
         x_pos, y_pos, clip = -0.05, 0.5, False
     _label_target.text(

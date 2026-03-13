@@ -156,12 +156,12 @@ def _anchor_worker(anchor, entries, args, out_path):
     the parent detects the non-zero exit code and skips this anchor.
     '''
     n          = len(entries)
-    fig_height = 6 * n
+    fig_height = 4 * n
     with PdfPages(out_path) as pdf:
-        # col 0 = narrow label column; cols 1-3 = Unphased / Ref / Alt
+        # col 0 = label column; cols 1-3 = Unphased / Ref / Alt
         fig, axes_grid = plt.subplots(
             n, 4, figsize=(18, fig_height), squeeze=False,
-            gridspec_kw={'width_ratios': [0.18, 1, 1, 1]},
+            gridspec_kw={'width_ratios': [0.5, 1, 1, 1]},
         )
         all_csums = []
         for row_idx, entry in enumerate(entries):
@@ -191,7 +191,7 @@ def _anchor_worker(anchor, entries, args, out_path):
         anc_REF = sum(s[1] for s in all_csums)
         anc_ALT = sum(s[2] for s in all_csums)
         top_frac = 1.0 - 0.7 / fig_height
-        plt.tight_layout(rect=[0.02, 0.02, 1.0, top_frac], h_pad=0.5)
+        plt.tight_layout(rect=[0.02, 0.02, 1.0, top_frac], h_pad=0.2)
         render_anchor_header(fig, fig_height, anchor,
                              anc_ref=anc_REF, anc_alt=anc_ALT)
         pdf.savefig(fig, bbox_inches='tight')
