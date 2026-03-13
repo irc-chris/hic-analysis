@@ -145,6 +145,7 @@ def main():
 
     ax.axhline(0, color='lightgray', linewidth=0.8, zorder=1)
     ax.axvline(0, color='lightgray', linewidth=0.8, zorder=1)
+    ax.plot([-6, 6], [-6, 6], color='lightgray', linewidth=0.8, linestyle='--', zorder=1)
 
     ax.set_xlim(-6, 6)
     ax.set_ylim(-6, 6)
